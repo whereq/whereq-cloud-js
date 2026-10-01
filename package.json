@@ -1,6 +1,7 @@
 {
   "name": "whereq.cloud",
   "version": "0.1.0",
+  "packageManager": "pnpm@9.15.9",
   "description": "Official JavaScript/TypeScript SDK for the WhereQ data cloud (api.whereq.cloud) — cost-of-living prices, comparisons, trending, finance & more.",
   "license": "MIT",
   "author": "WhereQ <whereq@gmail.com>",
