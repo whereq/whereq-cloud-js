@@ -12,18 +12,18 @@ bumps the version + CHANGELOG; merging that PR publishes to npm. npm creds live 
    ```bash
    pnpm changeset
    ```
-   Pick `whereq.cloud`, choose the bump, write a one-line summary. This writes a file under
+   Pick `@whereq/cloud`, choose the bump, write a one-line summary. This writes a file under
    `.changeset/` — **commit it** with your change.
 3. **Push to `main`** (or merge your PR). The **Release** workflow runs and, because a changeset is
    pending, opens/updates a **"Version Packages" PR** that applies the version bump + CHANGELOG.
 4. **Review & merge the "Version Packages" PR.** On merge (no changesets left), the Release workflow
    runs `changeset publish` → **publishes to npm** and pushes the git tag + GitHub Release.
-5. Verify at <https://www.npmjs.com/package/whereq.cloud>:
+5. Verify at <https://www.npmjs.com/package/@whereq/cloud>:
    ```bash
-   npm view whereq.cloud version
+   npm view @whereq/cloud version
    ```
 
-`npm i whereq.cloud@latest` then picks up the new version.
+`npm i @whereq/cloud@latest` then picks up the new version.
 
 ## Rules / gotchas
 

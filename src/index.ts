@@ -5,7 +5,7 @@
  * Public endpoints work with no key; metered endpoints take an API key.
  *
  * ```ts
- * import { Whereq } from "whereq.cloud";
+ * import { Whereq } from "@whereq/cloud";
  *
  * const wq = new Whereq();                          // public access
  * // const wq = new Whereq({ apiKey: "wq_live_…" }); // metered tier

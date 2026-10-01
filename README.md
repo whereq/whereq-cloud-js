@@ -10,13 +10,13 @@ Public endpoints work with no key; metered endpoints take an API key.
 ## Install
 
 ```bash
-npm i whereq.cloud        # or: pnpm add whereq.cloud · yarn add whereq.cloud
+npm i @whereq/cloud        # or: pnpm add @whereq/cloud · yarn add @whereq/cloud
 ```
 
 ## Usage
 
 ```ts
-import { Whereq } from "whereq.cloud";
+import { Whereq } from "@whereq/cloud";
 
 const wq = new Whereq();                           // public access
 // const wq = new Whereq({ apiKey: "wq_live_…" });  // metered tier
