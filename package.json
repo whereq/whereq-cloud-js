@@ -1,0 +1,44 @@
+{
+  "name": "whereq.cloud",
+  "version": "0.1.0",
+  "description": "Official JavaScript/TypeScript SDK for the WhereQ data cloud (api.whereq.cloud) — cost-of-living prices, comparisons, trending, finance & more.",
+  "license": "MIT",
+  "author": "WhereQ <whereq@gmail.com>",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "sideEffects": false,
+  "engines": { "node": ">=18" },
+  "repository": { "type": "git", "url": "git+https://github.com/whereq/whereq-cloud-js.git" },
+  "homepage": "https://whereq.cloud",
+  "bugs": "https://github.com/whereq/whereq-cloud-js/issues",
+  "keywords": ["whereq", "data", "api", "cost-of-living", "prices", "trending", "finance", "sdk"],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "verify": "pnpm run typecheck && pnpm run test && pnpm run build",
+    "release": "pnpm run build && changeset publish",
+    "prepublishOnly": "pnpm run build"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.9",
+    "tsup": "^8.3.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

@@ -1,0 +1,48 @@
+name: Release
+
+# Changesets-driven, mirroring whereq-react. On push to main: run the green bar,
+# then either open/update a "Version Packages" PR (if changesets are pending) or
+# publish to npm (when none are). npm creds live only in CI as the NPM_TOKEN secret;
+# provenance is attested via OIDC. The FIRST publish (v0.1.0, no changesets) runs
+# once NPM_TOKEN is set. See https://github.com/changesets/changesets
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  release:
+    name: version PR · publish to npm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run test
+      - name: Create Release PR or publish to npm
+        uses: changesets/action@v1
+        with:
+          version: pnpm exec changeset version
+          publish: pnpm run release
+          commit: "release: version packages"
+          title: "release: version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.CHANGESETS_TOKEN || secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"
