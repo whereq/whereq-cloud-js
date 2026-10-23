@@ -2,7 +2,7 @@
   "name": "@whereq/cloud",
   "version": "0.1.0",
   "packageManager": "pnpm@9.15.9",
-  "description": "Official JavaScript/TypeScript SDK for the WhereQ data cloud (api.whereq.cloud) — cost-of-living prices, comparisons, trending, finance & more.",
+  "description": "Official JavaScript/TypeScript SDK for the WhereQ data cloud (api.whereq.cloud) — North-America fuel & gas-station prices, cost-of-living prices, autos, lottery, trending, finance & more.",
   "license": "MIT",
   "author": "WhereQ <whereq@gmail.com>",
   "type": "module",
@@ -23,7 +23,7 @@
   "repository": { "type": "git", "url": "git+https://github.com/whereq/whereq-cloud-js.git" },
   "homepage": "https://whereq.cloud",
   "bugs": "https://github.com/whereq/whereq-cloud-js/issues",
-  "keywords": ["whereq", "data", "api", "cost-of-living", "prices", "trending", "finance", "sdk"],
+  "keywords": ["whereq", "data", "api", "fuel-prices", "gas-prices", "cost-of-living", "prices", "autos", "trending", "finance", "sdk"],
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
