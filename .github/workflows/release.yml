@@ -21,7 +21,7 @@ permissions:
 jobs:
   release:
     name: version PR · publish to npm
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04          # pinned — see note in ci.yml
     steps:
       - uses: actions/checkout@v7
         with:
