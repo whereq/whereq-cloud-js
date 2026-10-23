@@ -7,7 +7,9 @@ on:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # Pinned: `ubuntu-latest` is a moving target and has already migrated to Ubuntu 26.
+    # Pinning keeps the toolchain identical until we deliberately bump it.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
