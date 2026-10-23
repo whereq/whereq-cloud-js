@@ -123,6 +123,15 @@ export class Whereq {
   autosListings(p: Params = {}) { return this.get("/v1/autos/listings", p); }
   autosFuelEconomy(p: Params = {}) { return this.get("/v1/autos/fuel-economy", p); }
   autosModels(p: Params = {}) { return this.get("/v1/autos/models", p); }
+
+  // -- fuel (gas & diesel) ----------------------------------------------------
+  /** Geolocated retail fuel stations (lat/lon, municipality) with latest prices.
+   *  Filters: country, state, municipality, product, bbox, q. */
+  fuelStations(p: Params = {}) { return this.get("/v1/fuel/stations", p); }
+  /** One station: location + latest prices + intra-day price-change history. */
+  fuelStation(id: number | string) { return this.get(`/v1/fuel/stations/${encodeURIComponent(String(id))}`); }
+  /** Aggregated fuel price series (state / national), North-America-wide. */
+  fuelPrices(p: Params = {}) { return this.get("/v1/prices", { domain: "fuel", ...p }); }
 }
 
 export default Whereq;

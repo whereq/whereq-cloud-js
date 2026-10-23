@@ -1,8 +1,9 @@
 # whereq.cloud — JavaScript / TypeScript SDK
 
 Official JS/TS client for the [WhereQ data cloud](https://whereq.cloud) — the versioned,
-metered `/v1` API at **`api.whereq.cloud`**: cost-of-living prices, a cross-region
-cost-of-living comparison, trending hot-lists, autos, equities & market data, and more.
+metered `/v1` API at **`api.whereq.cloud`**: North-America fuel & gas-station prices,
+cost-of-living prices, a cross-region comparison, trending hot-lists, autos, lottery,
+equities & market data, and more.
 
 Zero runtime dependencies, ESM + CJS, fully typed. Works in Node 18+ and the browser.
 Public endpoints work with no key; metered endpoints take an API key.
@@ -27,7 +28,12 @@ await wq.costOfLiving("us:California,ca:Ontario,m:3958");
 // Prices — fuel | food | energy | housing | rent
 await wq.prices({ domain: "rent", region: "us", bedrooms: 2, limit: 10 });
 await wq.price(3958);                              // one series + full history
-const csv = await wq.pricesCsv({ domain: "fuel", region: "us" });
+const csv = await wq.pricesCsv({ domain: "food", region: "us" });
+
+// Fuel — North-America gas & diesel: geolocated stations + aggregated series
+await wq.fuelStations({ country: "MX", municipality: "Tijuana", product: "regular" });
+await wq.fuelStation(1);                           // one station + intra-day price history
+await wq.fuelPrices({ region: "mx" });             // state / national price series
 
 // Discovery
 await wq.catalog(); await wq.categories(); await wq.regions(); await wq.domains();
