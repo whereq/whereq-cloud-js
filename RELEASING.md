@@ -25,6 +25,21 @@ bumps the version + CHANGELOG; merging that PR publishes to npm. npm creds live 
 
 `npm i @whereq/cloud@latest` then picks up the new version.
 
+## Releasing without a changeset (manual bump)
+
+If the version in `package.json` is bumped by hand — and `VERSION` in
+`src/index.ts` is bumped to match — the Release workflow publishes that version
+directly, because there is no pending changeset to open a "Version Packages" PR
+for. This is the same path the first publish (`0.1.0`) took.
+
+Use it when the release must go out as a single push (the changeset flow needs
+the version PR merged before it publishes). Two rules make it safe:
+
+- `VERSION` in `src/index.ts` and `version` in `package.json` must be equal —
+  a test asserts it, so CI fails if they drift.
+- Write the `CHANGELOG.md` entry by hand; Changesets only generates it on the
+  version-PR path.
+
 ## Rules / gotchas
 
 - **Every user-facing change needs a changeset** (step 2) — no changeset ⇒ no version bump ⇒ nothing
