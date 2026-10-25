@@ -15,8 +15,146 @@
  * await wq.get("/v1/trending", { limit: 10 });       // escape hatch
  * ```
  */
-export const VERSION = "0.1.0";
+export const VERSION = "0.3.0";
 const DEFAULT_BASE_URL = "https://api.whereq.cloud";
+
+/** The products a station can quote. Mexico's CRE feed carries the first,
+ *  second and fourth; GasBuddy (US/Canada) adds midgrade. */
+export const FUEL_PRODUCTS = ["regular", "midgrade", "premium", "diesel"] as const;
+export type FuelProduct = (typeof FUEL_PRODUCTS)[number];
+
+/** Countries with station-level fuel data. */
+export const FUEL_COUNTRIES = ["MX", "US", "CA"] as const;
+export type FuelCountry = (typeof FUEL_COUNTRIES)[number];
+
+/** The unit each country quotes in — always local currency per litre. */
+export const FUEL_CURRENCIES: Record<FuelCountry, string> = {
+  MX: "MXN/L",
+  US: "USD/L",
+  CA: "CAD/L",
+};
+
+/** One product's latest price at a station. */
+export interface FuelStationPrice {
+  price: number;
+  observed_at: string;
+}
+
+/** A geolocated retail fuel station and its latest prices.
+ *  `state` is the human label ("Ontario", "Texas"); `state_iso` is the
+ *  two-letter code ("ON", "TX"). */
+export interface FuelStation {
+  id: number;
+  source: string;
+  ext_id: string;
+  country: string;
+  name: string;
+  brand?: string | null;
+  state?: string | null;
+  state_iso?: string | null;
+  municipality?: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  prices: Record<string, FuelStationPrice>;
+}
+
+/** Filters for `fuelStations()`. */
+export interface FuelStationsParams {
+  /** "MX", "US" or "CA". */
+  country?: FuelCountry | string;
+  /** State/province name *or* ISO code — "Ontario"/"ON", "Texas"/"TX". */
+  state?: string;
+  /** City name, e.g. "Mississauga". */
+  municipality?: string;
+  product?: FuelProduct | string;
+  /** "minLon,minLat,maxLon,maxLat" — a map viewport. */
+  bbox?: string;
+  /** Station-name search. */
+  q?: string;
+  /** 1–500 rows per page (default 100). */
+  limit?: number;
+  /** Row offset for paging. */
+  offset?: number;
+}
+
+/** Filters for `fuelStation()`. */
+export interface FuelStationParams {
+  /** Restrict the timeline to one product. */
+  product?: FuelProduct | string;
+  /** How far back the timeline reaches (1–1825, default 90). */
+  days?: number;
+}
+
+/** `GET /v1/fuel/stations`. Unentitled callers get a 100-row preview of the
+ *  oldest rows: `demo` is true, `total` is null and paging is ignored. */
+export interface FuelStationsResponse {
+  demo?: boolean;
+  preview_rows?: number;
+  note?: string;
+  upgrade_url?: string;
+  as_of: string;
+  count: number;
+  total?: number | null;
+  stations: FuelStation[];
+}
+
+/** One observed price change — the intra-day timeline for a station. */
+export interface FuelStationPricePoint {
+  product: string;
+  observed_at: string;
+  price: number;
+}
+
+/** `GET /v1/fuel/stations/{id}`. `days` is null in the unentitled preview. */
+export interface FuelStationDetail {
+  demo?: boolean;
+  preview_rows?: number;
+  note?: string;
+  upgrade_url?: string;
+  station: FuelStation;
+  days?: number | null;
+  prices: FuelStationPricePoint[];
+}
+
+/** Filters for `fuelPrices()`. */
+export interface FuelPricesParams {
+  /** Region slug, or a comma-separated list of them ("us,ca"). */
+  region?: string;
+  /** Free-text place name ("Calgary, Alberta"). */
+  geo?: string;
+  q?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/** One aggregated price series (state / national / metro). */
+export interface PriceSeries {
+  id: number;
+  domain: string;
+  source: string;
+  region?: string | null;
+  geo?: string | null;
+  item: string;
+  item_cn?: string | null;
+  unit?: string | null;
+  unit_cn?: string | null;
+  frequency?: string | null;
+  latest_period?: string | null;
+  latest_value?: number | null;
+  prev_value?: number | null;
+  points?: number | null;
+  spark?: number[];
+}
+
+/** `GET /v1/prices` — a page of series plus the page's own metadata. */
+export interface PriceSeriesResponse {
+  count: number;
+  domain?: string | null;
+  region?: string | null;
+  limit: number;
+  offset: number;
+  data: PriceSeries[];
+}
 
 export class WhereqError extends Error {
   constructor(
@@ -89,13 +227,16 @@ export class Whereq {
   }
 
   // -- prices / cost of living ------------------------------------------------
-  prices(p: { domain?: string; region?: string; bedrooms?: number; q?: string; limit?: number; offset?: number } = {}) {
-    return this.get("/v1/prices", p);
+  /** Cost-of-living price series (fuel | food | energy | housing | rent).
+   *  `region` takes a region slug or a comma-separated list ("us,ca");
+   *  `geo` is a free-text place name ("Calgary, Alberta"). */
+  prices(p: { domain?: string; region?: string; geo?: string; bedrooms?: number; q?: string; limit?: number; offset?: number } = {}): Promise<PriceSeriesResponse> {
+    return this.get<PriceSeriesResponse>("/v1/prices", p);
   }
   price(seriesId: number) {
     return this.get(`/v1/prices/${seriesId}`);
   }
-  pricesCsv(p: { domain?: string; region?: string; bedrooms?: number; q?: string } = {}) {
+  pricesCsv(p: { domain?: string; region?: string; geo?: string; bedrooms?: number; q?: string } = {}) {
     return this.getText("/v1/prices/export", p);
   }
   /** Compare cost of living across US states / CA provinces / metros.
@@ -125,13 +266,62 @@ export class Whereq {
   autosModels(p: Params = {}) { return this.get("/v1/autos/models", p); }
 
   // -- fuel (gas & diesel) ----------------------------------------------------
-  /** Geolocated retail fuel stations (lat/lon, municipality) with latest prices.
-   *  Filters: country, state, municipality, product, bbox, q. */
-  fuelStations(p: Params = {}) { return this.get("/v1/fuel/stations", p); }
-  /** One station: location + latest prices + intra-day price-change history. */
-  fuelStation(id: number | string) { return this.get(`/v1/fuel/stations/${encodeURIComponent(String(id))}`); }
-  /** Aggregated fuel price series (state / national), North-America-wide. */
-  fuelPrices(p: Params = {}) { return this.get("/v1/prices", { domain: "fuel", ...p }); }
+  /** Geolocated retail fuel stations with their latest prices.
+   *
+   *  Coverage: Mexico (`MX`, CRE open data), the United States (`US`) and
+   *  Canada (`CA`). Prices are in **local currency per litre** — `MXN/L`,
+   *  `USD/L` and `CAD/L` respectively.
+   *
+   *  Unentitled callers get a 100-row preview of the oldest rows and the
+   *  pagination arguments are ignored — check `response.demo`.
+   */
+  fuelStations(p: FuelStationsParams & Params = {}): Promise<FuelStationsResponse> {
+    return this.get<FuelStationsResponse>("/v1/fuel/stations", p);
+  }
+
+  /** One station: location, latest prices and its price-change timeline. */
+  fuelStation(
+    id: number | string,
+    p: FuelStationParams & Params = {},
+  ): Promise<FuelStationDetail> {
+    return this.get<FuelStationDetail>(
+      `/v1/fuel/stations/${encodeURIComponent(String(id))}`,
+      p,
+    );
+  }
+
+  /** Yield every matching station, paging through the API for you.
+   *
+   *  Only meaningful with an entitled key. The unentitled preview always
+   *  returns the *same* oldest 100 rows and ignores the paging arguments,
+   *  so there is nothing more to fetch: this yields that first page and
+   *  stops rather than looping on it.
+   */
+  async *fuelStationsAll(
+    p: FuelStationsParams & Params = {},
+  ): AsyncGenerator<FuelStation> {
+    const pageSize = Math.min(Math.max(Number(p.limit ?? 500), 1), 500);
+    let offset = Number(p.offset ?? 0);
+    for (;;) {
+      const page = await this.fuelStations({ ...p, limit: pageSize, offset });
+      const stations = page.stations ?? [];
+      if (stations.length === 0) return;
+      for (const s of stations) yield s;
+      if (page.demo) return; // preview: every page is the same slice
+      offset += stations.length;
+      if (page.total != null && offset >= page.total) return;
+    }
+  }
+
+  /** Aggregated fuel price series (state / national / metro).
+   *
+   *  These are the *series* behind the charts — EIA weekly for the US,
+   *  StatCan monthly for Canada, CRE for Mexico — not the station-level
+   *  prices that `fuelStations()` returns.
+   */
+  fuelPrices(p: FuelPricesParams & Params = {}): Promise<PriceSeriesResponse> {
+    return this.get<PriceSeriesResponse>("/v1/prices", { domain: "fuel", ...p });
+  }
 }
 
 export default Whereq;

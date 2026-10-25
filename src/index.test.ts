@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
-import { Whereq, WhereqError } from "./index";
+import {
+  Whereq,
+  WhereqError,
+  FUEL_PRODUCTS,
+  FUEL_COUNTRIES,
+  FUEL_CURRENCIES,
+} from "./index";
 
 function mockFetch(status: number, body: unknown) {
   return vi.fn(
@@ -40,5 +46,112 @@ describe("Whereq", () => {
     const url = String(f.mock.calls[0][0]);
     expect(url).toContain("/v1/cost-of-living");
     expect(url).toContain("places=us%3ACalifornia");
+  });
+});
+
+describe("fuel", () => {
+  it("sends every station filter", async () => {
+    const f = mockFetch(200, { as_of: "t", count: 0, stations: [] });
+    const wq = new Whereq({ fetch: f });
+    await wq.fuelStations({
+      country: "CA",
+      state: "ON",
+      municipality: "Mississauga",
+      product: "midgrade",
+      bbox: "-80,43,-79,44",
+      q: "husky",
+      limit: 250,
+      offset: 500,
+    });
+    const url = String(f.mock.calls[0][0]);
+    for (const frag of [
+      "country=CA",
+      "state=ON",
+      "municipality=Mississauga",
+      "product=midgrade",
+      "bbox=-80%2C43%2C-79%2C44",
+      "q=husky",
+      "limit=250",
+      "offset=500",
+    ]) {
+      expect(url).toContain(frag);
+    }
+  });
+
+  it("passes product and days to a single station", async () => {
+    const f = mockFetch(200, { station: {}, prices: [] });
+    const wq = new Whereq({ fetch: f });
+    await wq.fuelStation(436335, { product: "regular", days: 7 });
+    const url = String(f.mock.calls[0][0]);
+    expect(url).toContain("/v1/fuel/stations/436335");
+    expect(url).toContain("product=regular");
+    expect(url).toContain("days=7");
+  });
+
+  it("forces the fuel domain on fuelPrices", async () => {
+    const f = mockFetch(200, { count: 0, data: [] });
+    const wq = new Whereq({ fetch: f });
+    await wq.fuelPrices({ region: "ca", limit: 10 });
+    const url = String(f.mock.calls[0][0]);
+    expect(url).toContain("domain=fuel");
+    expect(url).toContain("region=ca");
+    expect(url).toContain("limit=10");
+  });
+
+  it("pages through every station with fuelStationsAll", async () => {
+    const pages = [
+      { as_of: "t0", count: 2, total: 3, stations: [{ id: 1 }, { id: 2 }] },
+      { as_of: "t1", count: 1, total: 3, stations: [{ id: 3 }] },
+    ];
+    let n = 0;
+    const f = vi.fn(async (_input: RequestInfo | URL) => {
+      const body = pages[n++];
+      return {
+        ok: true,
+        status: 200,
+        statusText: "",
+        json: async () => body,
+        text: async () => JSON.stringify(body),
+      } as unknown as Response;
+    });
+    const wq = new Whereq({ fetch: f });
+    const ids: number[] = [];
+    for await (const s of wq.fuelStationsAll({ country: "CA" })) ids.push(s.id);
+    expect(ids).toEqual([1, 2, 3]);
+    expect(f).toHaveBeenCalledTimes(2);
+    expect(String(f.mock.calls[0][0])).toContain("offset=0");
+    expect(String(f.mock.calls[1][0])).toContain("offset=2");
+  });
+
+  it("stops the iterator on an empty page", async () => {
+    const f = mockFetch(200, { as_of: "t", count: 0, total: null, stations: [] });
+    const wq = new Whereq({ fetch: f });
+    const out = [];
+    for await (const s of wq.fuelStationsAll()) out.push(s);
+    expect(out).toEqual([]);
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops the iterator on the demo preview", async () => {
+    // The preview returns the same 100 rows for every offset — stop, don't loop.
+    const f = mockFetch(200, {
+      demo: true,
+      preview_rows: 100,
+      total: null,
+      count: 2,
+      as_of: "t",
+      stations: [{ id: 1 }, { id: 2 }],
+    });
+    const wq = new Whereq({ fetch: f });
+    const out = [];
+    for await (const s of wq.fuelStationsAll({ country: "CA" })) out.push(s);
+    expect(out.map((s) => s.id)).toEqual([1, 2]);
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it("exports the fuel constants", () => {
+    expect(FUEL_PRODUCTS).toContain("midgrade");
+    expect(FUEL_COUNTRIES).toEqual(["MX", "US", "CA"]);
+    expect(FUEL_CURRENCIES.CA).toBe("CAD/L");
   });
 });
