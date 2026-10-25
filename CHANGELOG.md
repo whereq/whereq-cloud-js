@@ -1,5 +1,13 @@
 # @whereq/cloud
 
+## 0.4.0
+
+### Minor Changes
+
+- Add the lottery endpoints: `lotteryDraws()`, `lotteryLatestDraw()`,
+  `lotteryFrequency()`, `lotteryGames()` and `lotteryGame()`. The package
+  advertised lottery and had no method for it.
+
 ## 0.3.0
 
 ### Minor Changes

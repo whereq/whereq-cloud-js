@@ -15,7 +15,7 @@
  * await wq.get("/v1/trending", { limit: 10 });       // escape hatch
  * ```
  */
-export const VERSION = "0.3.0";
+export const VERSION = "0.4.0";
 const DEFAULT_BASE_URL = "https://api.whereq.cloud";
 
 /** The products a station can quote. Mexico's CRE feed carries the first,
@@ -264,6 +264,33 @@ export class Whereq {
   autosListings(p: Params = {}) { return this.get("/v1/autos/listings", p); }
   autosFuelEconomy(p: Params = {}) { return this.get("/v1/autos/fuel-economy", p); }
   autosModels(p: Params = {}) { return this.get("/v1/autos/models", p); }
+
+  // -- lottery -----------------------------------------------------------------
+  /** Recent lottery draws, newest first.
+   *
+   *  Unentitled callers get the oldest 100 draws instead of the recent
+   *  ones — check `response.demo`.
+   */
+  lotteryDraws(p: { game?: string; days?: number; limit?: number } & Params = {}): Promise<any> {
+    return this.get("/v1/lottery/draws", p);
+  }
+  /** The most recent draw for a game. On the unentitled preview this is the
+   *  *oldest* draw — the recent one is the gated, valuable row. */
+  lotteryLatestDraw(game: string): Promise<any> {
+    return this.get(`/v1/lottery/draws/${encodeURIComponent(game)}/latest`);
+  }
+  /** Per-number frequency for a game over a window (30–1825 days). */
+  lotteryFrequency(game: string, days = 365): Promise<any> {
+    return this.get(`/v1/lottery/draws/${encodeURIComponent(game)}/frequency`, { days });
+  }
+  /** The lottery game registry: names, play rules and draw days. */
+  lotteryGames(p: { country?: string; region?: string } & Params = {}): Promise<any> {
+    return this.get("/v1/lottery/games", p);
+  }
+  /** One game's full play rules and metadata. */
+  lotteryGame(slug: string): Promise<any> {
+    return this.get(`/v1/lottery/games/${encodeURIComponent(slug)}`);
+  }
 
   // -- fuel (gas & diesel) ----------------------------------------------------
   /** Geolocated retail fuel stations with their latest prices.

@@ -156,6 +156,28 @@ describe("fuel", () => {
     expect(f).toHaveBeenCalledTimes(1);
   });
 
+  it("covers the lottery endpoints", async () => {
+    const f = mockFetch(200, { count: 0 });
+    const wq = new Whereq({ fetch: f });
+    await wq.lotteryDraws({ game: "powerball", days: 7, limit: 5 });
+    await wq.lotteryLatestDraw("powerball");
+    await wq.lotteryFrequency("powerball", 90);
+    await wq.lotteryGames({ country: "US", region: "NY" });
+    await wq.lotteryGame("powerball");
+
+    const urls = f.mock.calls.map((c) => String(c[0]));
+    expect(urls[0]).toContain("/v1/lottery/draws?");
+    expect(urls[0]).toContain("game=powerball");
+    expect(urls[0]).toContain("days=7");
+    expect(urls[1]).toContain("/v1/lottery/draws/powerball/latest");
+    expect(urls[2]).toContain("/v1/lottery/draws/powerball/frequency");
+    expect(urls[2]).toContain("days=90");
+    expect(urls[3]).toContain("/v1/lottery/games?");
+    expect(urls[3]).toContain("country=US");
+    expect(urls[3]).toContain("region=NY");
+    expect(urls[4]).toContain("/v1/lottery/games/powerball");
+  });
+
   it("exports the fuel constants", () => {
     expect(FUEL_PRODUCTS).toContain("midgrade");
     expect(FUEL_COUNTRIES).toEqual(["MX", "US", "CA"]);

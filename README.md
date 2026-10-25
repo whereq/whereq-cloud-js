@@ -36,6 +36,12 @@ await wq.fuelStations({ country: "MX", municipality: "Tijuana", product: "regula
 await wq.fuelStation(1);                           // one station + intra-day price history
 await wq.fuelPrices({ region: "mx" });             // state / national price series
 
+// Lottery — draws, per-number frequency, and the game registry
+await wq.lotteryGames({ country: "US", region: "NY" });
+await wq.lotteryDraws({ game: "ny_lotto", days: 30 });
+await wq.lotteryLatestDraw("ny_lotto");
+await wq.lotteryFrequency("ny_lotto", 365);
+
 // Discovery
 await wq.catalog(); await wq.categories(); await wq.regions(); await wq.domains();
 
