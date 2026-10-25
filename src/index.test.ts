@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
+import pkg from "../package.json";
 import {
   Whereq,
   WhereqError,
+  VERSION,
   FUEL_PRODUCTS,
   FUEL_COUNTRIES,
   FUEL_CURRENCIES,
@@ -21,6 +23,11 @@ function mockFetch(status: number, body: unknown) {
 }
 
 describe("Whereq", () => {
+  it("keeps VERSION in step with the package version", () => {
+    // The exported VERSION drifted from package.json once already (0.1.0 vs 0.2.0).
+    expect(VERSION).toBe(pkg.version);
+  });
+
   it("builds params, drops undefined, sends the key", async () => {
     const f = mockFetch(200, { ok: true });
     const wq = new Whereq({ apiKey: "wq_test", fetch: f });
