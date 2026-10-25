@@ -28,6 +28,7 @@ await wq.costOfLiving("us:California,ca:Ontario,m:3958");
 // Prices — fuel | food | energy | housing | rent
 await wq.prices({ domain: "rent", region: "us", bedrooms: 2, limit: 10 });
 await wq.price(3958);                              // one series + full history
+await wq.prices({ domain: "fuel", geo: "Calgary, Alberta" });
 const csv = await wq.pricesCsv({ domain: "food", region: "us" });
 
 // Fuel — North-America gas & diesel: geolocated stations + aggregated series
@@ -48,6 +49,42 @@ await wq.get("/v1/trending", { limit: 10 });
 
 Errors throw `WhereqError` (with `.status`, `.message`, `.url`). A typed response is
 available via `wq.get<MyType>(…)`.
+
+## Fuel stations
+
+Station-level retail fuel prices for **Mexico (`MX`)**, the **United States (`US`)**
+and **Canada (`CA`)**. Every price is in **local currency per litre** — `MXN/L`,
+`USD/L` or `CAD/L`.
+
+```ts
+// Canada — by ISO code or by name ("ON" and "Ontario" both match)
+await wq.fuelStations({ country: "CA", state: "ON", limit: 500 });
+
+// United States — every product a station quotes
+await wq.fuelStations({ country: "US", state: "TX", product: "diesel" });
+
+// A map viewport: "minLon,minLat,maxLon,maxLat"
+await wq.fuelStations({ country: "US", bbox: "-123,37,-122,38" });
+
+// One station's price-change timeline
+await wq.fuelStation(436335, { product: "regular", days: 7 });
+
+// Every matching station, paging for you
+for await (const station of wq.fuelStationsAll({ country: "CA" })) {
+  console.log(station.name, station.prices);
+}
+```
+
+Products are `regular`, `midgrade`, `premium` and `diesel` — `FUEL_PRODUCTS`,
+`FUEL_COUNTRIES` and `FUEL_CURRENCIES` are exported for convenience.
+
+> **The preview.** Without an entitled API key the fuel endpoints return a
+> 100-row preview of the *oldest* rows, ignore `limit`/`offset`, and set
+> `demo: true` in the response. Check `response.demo` before paging.
+
+`fuelPrices()` is a different thing: the aggregated *series* behind the charts
+(EIA weekly for the US, StatCan monthly for Canada, CRE for Mexico), not
+station-level prices.
 
 ## License
 
