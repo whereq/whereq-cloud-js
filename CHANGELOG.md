@@ -1,5 +1,13 @@
 # @whereq/cloud
 
+## 0.5.1
+
+### Patch Changes
+
+- The detail endpoint's station carries no `prices` map — the timeline comes
+  back as the separate `prices` array on the response. `FuelStation.prices`
+  is now optional, so `station.prices` no longer reads as always-present.
+
 ## 0.5.0
 
 ### Minor Changes

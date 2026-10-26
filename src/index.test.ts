@@ -197,6 +197,19 @@ describe("fuel", () => {
     expect(urls[4]).toContain("/v1/lottery/games/powerball");
   });
 
+  it("types the detail station without a prices map", async () => {
+    // The detail endpoint returns the station without `prices`; the timeline
+    // is the separate array on the response.
+    const f = mockFetch(200, {
+      station: { id: 1, name: "Shell", country: "CA" },
+      prices: [{ product: "regular", observed_at: "t", price: 1.67 }],
+    });
+    const wq = new Whereq({ fetch: f });
+    const d = await wq.fuelStation(1, { days: 3 });
+    expect(d.station.prices).toBeUndefined();
+    expect(d.prices[0].price).toBe(1.67);
+  });
+
   it("exports the fuel constants", () => {
     expect(FUEL_PRODUCTS).toContain("midgrade");
     expect(FUEL_COUNTRIES).toEqual(["MX", "US", "CA"]);
