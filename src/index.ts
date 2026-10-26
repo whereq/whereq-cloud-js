@@ -15,7 +15,7 @@
  * await wq.get("/v1/trending", { limit: 10 });       // escape hatch
  * ```
  */
-export const VERSION = "0.4.0";
+export const VERSION = "0.5.0";
 const DEFAULT_BASE_URL = "https://api.whereq.cloud";
 
 /** The products a station can quote. Mexico's CRE feed carries the first,
@@ -178,6 +178,12 @@ export interface ClientOptions {
 
 type Params = Record<string, unknown>;
 
+/** The API key from the environment, when there is one. */
+function envApiKey(): string {
+  const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+  return proc?.env?.WHEREQ_API_KEY ?? "";
+}
+
 export class Whereq {
   private readonly baseUrl: string;
   private readonly headers: Record<string, string>;
@@ -186,7 +192,9 @@ export class Whereq {
   constructor(opts: ClientOptions = {}) {
     this.baseUrl = (opts.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
     this.headers = { Accept: "application/json" };
-    if (opts.apiKey) this.headers["X-API-Key"] = opts.apiKey;
+    // The key may come from the options or the environment, in that order.
+    const key = opts.apiKey ?? envApiKey();
+    if (key) this.headers["X-API-Key"] = key;
     const f = opts.fetch ?? globalThis.fetch;
     if (!f) throw new Error("No global fetch available — pass `fetch` in options (Node <18).");
     this._fetch = f;
