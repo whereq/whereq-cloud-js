@@ -1,6 +1,6 @@
 {
   "name": "@whereq/cloud",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "packageManager": "pnpm@9.15.9",
   "description": "Official JavaScript/TypeScript SDK for the WhereQ data cloud (api.whereq.cloud) — North-America fuel & gas-station prices, cost-of-living prices, autos, lottery, trending, finance & more.",
   "license": "MIT",

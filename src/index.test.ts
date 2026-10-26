@@ -41,6 +41,25 @@ describe("Whereq", () => {
     expect((init.headers as Record<string, string>)["X-API-Key"]).toBe("wq_test");
   });
 
+  it("falls back to WHEREQ_API_KEY for the key", () => {
+    const prev = process.env.WHEREQ_API_KEY;
+    process.env.WHEREQ_API_KEY = "wq_env_key";
+    try {
+      const wq = new Whereq({ fetch: mockFetch(200, {}) });
+      expect((wq as unknown as { headers: Record<string, string> }).headers["X-API-Key"]).toBe(
+        "wq_env_key",
+      );
+      // An explicit key still wins over the environment.
+      const wq2 = new Whereq({ apiKey: "wq_explicit", fetch: mockFetch(200, {}) });
+      expect((wq2 as unknown as { headers: Record<string, string> }).headers["X-API-Key"]).toBe(
+        "wq_explicit",
+      );
+    } finally {
+      if (prev === undefined) delete process.env.WHEREQ_API_KEY;
+      else process.env.WHEREQ_API_KEY = prev;
+    }
+  });
+
   it("throws WhereqError on non-2xx", async () => {
     const wq = new Whereq({ fetch: mockFetch(402, { detail: "quota reached" }) });
     await expect(wq.prices({ domain: "rent" })).rejects.toBeInstanceOf(WhereqError);

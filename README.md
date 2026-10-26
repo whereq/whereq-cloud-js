@@ -21,6 +21,7 @@ import { Whereq } from "@whereq/cloud";
 
 const wq = new Whereq();                           // public access
 // const wq = new Whereq({ apiKey: "wq_live_…" });  // metered tier
+// const wq = new Whereq();                        // uses $WHEREQ_API_KEY
 
 // Cost of living — compare US states, CA provinces, or metros (by rent-series id)
 await wq.costOfLiving("us:California,ca:Ontario,m:3958");

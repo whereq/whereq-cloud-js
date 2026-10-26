@@ -1,5 +1,13 @@
 # @whereq/cloud
 
+## 0.5.0
+
+### Minor Changes
+
+- Read the API key from `WHEREQ_API_KEY` when no key is passed. The docs have
+  always said the key may come from the environment; the SDK never read it. An
+  explicit `apiKey` still wins.
+
 ## 0.4.0
 
 ### Minor Changes
