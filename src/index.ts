@@ -15,7 +15,7 @@
  * await wq.get("/v1/trending", { limit: 10 });       // escape hatch
  * ```
  */
-export const VERSION = "0.5.0";
+export const VERSION = "0.5.1";
 const DEFAULT_BASE_URL = "https://api.whereq.cloud";
 
 /** The products a station can quote. Mexico's CRE feed carries the first,
@@ -40,7 +40,7 @@ export interface FuelStationPrice {
   observed_at: string;
 }
 
-/** A geolocated retail fuel station and its latest prices.
+/** A geolocated retail fuel station.
  *  `state` is the human label ("Ontario", "Texas"); `state_iso` is the
  *  two-letter code ("ON", "TX"). */
 export interface FuelStation {
@@ -55,7 +55,10 @@ export interface FuelStation {
   municipality?: string | null;
   lat?: number | null;
   lon?: number | null;
-  prices: Record<string, FuelStationPrice>;
+  /** The latest price per product — present on the *list* endpoint. The
+   *  *detail* endpoint omits it: its timeline comes back as the separate
+   *  `prices` array on the response. */
+  prices?: Record<string, FuelStationPrice>;
 }
 
 /** Filters for `fuelStations()`. */
