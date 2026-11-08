@@ -157,7 +157,7 @@ write_changelog() {
     const body = summary
       ? summary.split("\n").map((line, i) => (i === 0 ? `- ${line}` : (line ? `  ${line}` : ""))).join("\n")
       : "- (no summary given)";
-    const section = `\n## ${version}\n\n### ${heading} Changes\n\n${body}\n`;
+    const section = `\n## ${version}\n\n### ${heading.charAt(0).toUpperCase() + heading.slice(1)} Changes\n\n${body}\n`;
     const next = raw.slice(0, title[0].length) + section + raw.slice(title[0].length);
     fs.writeFileSync(file, next);
   ' "$CHANGELOG" "$VERSION" "$1" "$SUMMARY"
