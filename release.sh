@@ -34,10 +34,23 @@ POLL_ATTEMPTS="${POLL_ATTEMPTS:-30}"
 DRY_RUN=0
 SUMMARY=""
 VERSION=""
+COMMITTED=0
 
 die()  { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 info() { printf '\033[36m==>\033[0m %s\n' "$*"; }
 ok()   { printf '\033[32m  ok\033[0m %s\n' "$*"; }
+
+# A release that fails must not leave the tree claiming a version that was
+# never published — put the version bump back if we die before the commit.
+cleanup() {
+  local rc=$?
+  if [ "$rc" -ne 0 ] && [ "$COMMITTED" -eq 0 ]; then
+    git checkout -- "$PACKAGE_JSON" "$CHANGELOG" 2>/dev/null || true
+    printf '\033[33m!!\033[0m the release failed — the version bump was reverted\n' >&2
+  fi
+  exit $rc
+}
+trap cleanup EXIT
 
 usage() {
   cat <<'USAGE'
@@ -273,6 +286,7 @@ fi
 info "committing"
 git add "$PACKAGE_JSON" "$CHANGELOG"
 git commit -m "$COMMIT_MSG"
+COMMITTED=1
 ok "$(git rev-parse --short HEAD) $COMMIT_MSG"
 
 info "pushing $BRANCH"
