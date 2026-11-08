@@ -159,6 +159,185 @@ export interface PriceSeriesResponse {
   data: PriceSeries[];
 }
 
+// -- geography (places, boundaries, hierarchy) ---------------------------------
+
+/** One place — a province, a municipality, a ward, a neighbourhood.
+ *
+ *  `kind` is the platform's own concept (`province`, `region`,
+ *  `municipality`, `city`, `town`, `ward`, `neighbourhood`…), not the
+ *  source's admin level. `country_code` is the two-letter ISO code and is
+ *  the same for both vocabularies — a country filter accepts `CA` or
+ *  `CAN` and answers with the same places either way.
+ */
+export interface GeoPlace {
+  uid: string;
+  kind: string;
+  kind_source: string;
+  name: string;
+  name_en?: string | null;
+  name_zh?: string | null;
+  name_local?: string | null;
+  official_name?: string | null;
+  source: string;
+  source_id: string;
+  source_url?: string | null;
+  license?: string | null;
+  raw_admin_level?: number | null;
+  raw_place?: string | null;
+  raw_boundary?: string | null;
+  country_code?: string | null;
+  province_code?: string | null;
+  iso_code?: string | null;
+  ref?: string | null;
+  population?: number | null;
+  population_date?: string | null;
+  wikidata?: string | null;
+  wikipedia?: string | null;
+  website?: string | null;
+  capital?: string | null;
+  centroid_lon?: number | null;
+  centroid_lat?: number | null;
+  bbox_min_lon?: number | null;
+  bbox_min_lat?: number | null;
+  bbox_max_lon?: number | null;
+  bbox_max_lat?: number | null;
+  area_km2?: number | null;
+  has_boundary: boolean;
+}
+
+export interface GeoPlaceList {
+  count: number;
+  data: GeoPlace[];
+  limit: number;
+  offset: number;
+}
+
+/** One container of a place, as the detail endpoint lists them.
+ *
+ *  A place has SEVERAL parents — a neighbourhood is in a ward, in a city,
+ *  in a census division and in a province, all at once. The list is
+ *  deliberately a list.
+ */
+export interface GeoParent {
+  uid: string;
+  kind: string;
+  name: string;
+  source: string;
+  area_ratio?: number | null;
+  is_primary: boolean;
+}
+
+/** One place with its containers and the places inside it. */
+export interface GeoPlaceDetail {
+  uid: string;
+  place: GeoPlace;
+  parents: GeoParent[];
+  children: GeoParent[];
+}
+
+/** One concept in the vocabulary, with a live count behind it. */
+export interface GeoConcept {
+  kind: string;
+  name: string;
+  name_cn?: string | null;
+  description?: string | null;
+  description_cn?: string | null;
+  places: number;
+  with_boundary: number;
+  rank: number;
+}
+
+/** The vocabulary, explained. */
+export interface GeoConceptList {
+  count: number;
+  concepts: GeoConcept[];
+  sources: Array<Record<string, unknown>>;
+}
+
+/** Two places of DIFFERENT kinds covering the same ground.
+ *
+ *  This is the deliberate part of the dataset: a census subdivision and
+ *  an OpenStreetMap city boundary that describe the same town in two
+ *  vocabularies. The platform keeps both rather than picking one.
+ */
+export interface GeoOverlap {
+  a_id: number;
+  b_id: number;
+  a_uid: string;
+  b_uid: string;
+  a_name: string;
+  b_name: string;
+  a_kind: string;
+  b_kind: string;
+  a_source: string;
+  b_source: string;
+  overlap_ratio: number;
+  a_concept: string;
+  b_concept: string;
+}
+
+/** The overlapping pairs inside a box. */
+export interface GeoOverlapList {
+  bbox: Record<string, number>;
+  min_ratio: number;
+  count: number;
+  overlaps: GeoOverlap[];
+}
+
+/** One place in the containing stack at a point.
+ *
+ *  `country_code` is on every level, so the stack can be read without a
+ *  second lookup.
+ */
+export interface GeoAtPlace {
+  uid: string;
+  kind: string;
+  kind_source: string;
+  name: string;
+  name_en?: string | null;
+  name_zh?: string | null;
+  source: string;
+  raw_admin_level?: number | null;
+  raw_place?: string | null;
+  population?: number | null;
+  wikidata?: string | null;
+  centroid_lon?: number | null;
+  centroid_lat?: number | null;
+  area_km2?: number | null;
+  country_code?: string | null;
+  province_code?: string | null;
+  boundary_area_km2?: number | null;
+  concept?: Record<string, unknown>;
+}
+
+/** Every place containing a point, broadest first: country, province,
+ *  region, municipality, city, ward, neighbourhood. The answer to "where
+ *  am I?" without pretending one of them is *the* answer. */
+export interface GeoAtResponse {
+  lon: number;
+  lat: number;
+  count: number;
+  places: GeoAtPlace[];
+}
+
+/** A place's outline as GeoJSON — a FeatureCollection you can hand
+ *  straight to a map library. */
+export interface GeoBoundary {
+  type: string;
+  features: Array<Record<string, unknown>>;
+}
+
+export interface GeoPlacesParams {
+  kind?: string;
+  source?: string;
+  country?: string;
+  q?: string;
+  bbox?: string;
+  has_boundary?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
 export class WhereqError extends Error {
   constructor(
     public readonly status: number,
@@ -359,6 +538,64 @@ export class Whereq {
    */
   fuelPrices(p: FuelPricesParams & Params = {}): Promise<PriceSeriesResponse> {
     return this.get<PriceSeriesResponse>("/v1/prices", { domain: "fuel", ...p });
+  }
+
+  // -- geography (places, boundaries, hierarchy) ------------------------------
+  /** The place list — provinces, regions, municipalities, cities, towns,
+   *  wards, neighbourhoods, countries.
+   *
+   *  `country` takes an ISO code and either spelling works: `"CA"` and
+   *  `"CAN"` find the same places, in both vocabularies.
+   */
+  geoPlaces(p: GeoPlacesParams & Params = {}): Promise<GeoPlaceList> {
+    return this.get<GeoPlaceList>("/v1/geo/places", p);
+  }
+
+  /** One place, with its containers AND the places inside it.
+   *
+   *  The parents are a list on purpose: a place belongs to several things
+   *  at once.
+   */
+  geoPlace(uid: string): Promise<GeoPlaceDetail> {
+    return this.get<GeoPlaceDetail>(`/v1/geo/places/${encodeURIComponent(uid)}`);
+  }
+
+  /** A place's outline as GeoJSON.
+   *
+   *  `simplify` is in METRES: the outline keeps every corner more than
+   *  that far from the original, and the result is still a valid polygon.
+   */
+  geoBoundary(uid: string, p: { simplify?: number } & Params = {}): Promise<GeoBoundary> {
+    return this.get<GeoBoundary>(`/v1/geo/places/${encodeURIComponent(uid)}/boundary`, p);
+  }
+
+  /** Every place containing a point, broadest first.
+   *
+   *  The answer to "which district is this?" without picking a winner: a
+   *  point downtown Toronto lands in a neighbourhood, a ward, a city, a
+   *  census division, a province and a country, and all of them are
+   *  returned.
+   */
+  geoAt(lon: number, lat: number): Promise<GeoAtResponse> {
+    return this.get<GeoAtResponse>("/v1/geo/at", { lon, lat });
+  }
+
+  /** The vocabulary: every concept, in both languages, with a live count of
+   *  how many places and outlines it has. */
+  geoConcepts(): Promise<GeoConceptList> {
+    return this.get<GeoConceptList>("/v1/geo/concepts");
+  }
+
+  /** The places of different kinds that cover the same ground.
+   *
+   *  `bbox` is required — "minLon,minLat,maxLon,maxLat". Comparing every
+   *  pair in the country is a quadratic join, and nobody asks that
+   *  question about all of Canada at once.
+   */
+  geoOverlaps(
+    p: { bbox: string; min_ratio?: number; limit?: number } & Params,
+  ): Promise<GeoOverlapList> {
+    return this.get<GeoOverlapList>("/v1/geo/overlaps", p);
   }
 }
 
