@@ -1,48 +1,74 @@
 name: Release
 
-# Changesets-driven, mirroring whereq-react. On push to main: run the green bar,
-# then either open/update a "Version Packages" PR (if changesets are pending) or
-# publish to npm (when none are). npm creds live only in CI as the NPM_TOKEN secret;
-# provenance is attested via OIDC. The FIRST publish (v0.1.0, no changesets) runs
-# once NPM_TOKEN is set. See https://github.com/changesets/changesets
+# Publish to npm on a version tag (e.g. v0.7.0) via Trusted Publishing (OIDC) —
+# no stored token. The tag is the trigger: `./release.sh` bumps the version,
+# writes the CHANGELOG entry, commits, pushes main, then pushes the tag and
+# this workflow does the rest.
+#
+# The trusted publisher is registered on npmjs.com against this repository AND
+# this workflow filename — renaming this file breaks publishing until the npm
+# side is updated. The git ref is not part of that match, so tag builds work.
+# See https://docs.npmjs.com/trusted-publishers/
 on:
   push:
-    branches: [main]
+    tags: ["v*"]
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
-  contents: write
-  pull-requests: write
-  id-token: write
+  contents: write        # create the GitHub Release for the tag
+  id-token: write        # OIDC token for npm Trusted Publishing
 
 jobs:
-  release:
-    name: version PR · publish to npm
+  publish:
+    name: build · publish to npm
     runs-on: ubuntu-24.04          # pinned — see note in ci.yml
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          # Node 22 ships the npm CLI that Trusted Publishing needs (>= 11.5.1).
+          node-version: 22
           cache: pnpm
           registry-url: https://registry.npmjs.org
+
       - run: pnpm install --frozen-lockfile
+
+      # Fail fast on a stale version. The publish ships the version in
+      # package.json, not the tag string — so a tag left over from the previous
+      # release would try to re-upload a version npm already has ("cannot
+      # publish over the previously published versions") instead of the release
+      # you meant to ship.
+      - name: verify the tag matches the package version
+        run: |
+          pkg_version="$(node -p "require('./package.json').version")"
+          tag_version="${GITHUB_REF_NAME#v}"
+          if [ "$pkg_version" != "$tag_version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $pkg_version"
+            exit 1
+          fi
+          echo "Publishing version $pkg_version"
+
+      # Green bar before publish — the same checks CI runs on every push.
       - run: pnpm run typecheck
       - run: pnpm run test
-      - name: Create Release PR or publish to npm
-        uses: changesets/action@v1
-        with:
-          version: pnpm exec changeset version
-          publish: pnpm run release
-          commit: "release: version packages"
-          title: "release: version packages"
+      - run: pnpm run build
+
+      # Trusted Publishing requires the npm CLI itself to do the OIDC exchange,
+      # so make sure it is new enough. pnpm stays the installer; npm publishes.
+      - name: upgrade the npm CLI
+        run: npm install -g npm@latest
+
+      - name: publish to npm
+        run: npm publish
         env:
-          GITHUB_TOKEN: ${{ secrets.CHANGESETS_TOKEN || secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
+
+      - name: create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes --verify-tag

@@ -26,7 +26,7 @@ describe("Whereq", () => {
   it("keeps VERSION in step with the package version", () => {
     // VERSION is derived from package.json, so this cannot drift — the test
     // stays as a guard against someone re-introducing a hardcoded literal.
-    // It bit us once: a hardcoded VERSION broke the Changesets release PR.
+    // It bit us once: a hardcoded VERSION broke the release pipeline.
     expect(VERSION).toBe(pkg.version);
     expect(VERSION).toMatch(/^\d+\.\d+\.\d+/);
   });

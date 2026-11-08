@@ -19,7 +19,8 @@ import pkg from "../package.json";
 
 /**
  * The SDK version, read straight from `package.json` so it can never drift
- * from what is published. Changesets bumps `package.json`; this follows it.
+ * from what is published. The release tooling bumps `package.json`; this
+ * follows it.
  */
 export const VERSION = pkg.version;
 
