@@ -1,11 +1,5 @@
 # @whereq/cloud
 
-## 0.6.1
-
-### patch Changes
-
-- a test entry for the dry run
-
 ## 0.6.0
 
 ### Minor Changes
