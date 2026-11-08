@@ -24,8 +24,11 @@ function mockFetch(status: number, body: unknown) {
 
 describe("Whereq", () => {
   it("keeps VERSION in step with the package version", () => {
-    // The exported VERSION drifted from package.json once already (0.1.0 vs 0.2.0).
+    // VERSION is derived from package.json, so this cannot drift — the test
+    // stays as a guard against someone re-introducing a hardcoded literal.
+    // It bit us once: a hardcoded VERSION broke the Changesets release PR.
     expect(VERSION).toBe(pkg.version);
+    expect(VERSION).toMatch(/^\d+\.\d+\.\d+/);
   });
 
   it("builds params, drops undefined, sends the key", async () => {

@@ -15,7 +15,14 @@
  * await wq.get("/v1/trending", { limit: 10 });       // escape hatch
  * ```
  */
-export const VERSION = "0.5.1";
+import pkg from "../package.json";
+
+/**
+ * The SDK version, read straight from `package.json` so it can never drift
+ * from what is published. Changesets bumps `package.json`; this follows it.
+ */
+export const VERSION = pkg.version;
+
 const DEFAULT_BASE_URL = "https://api.whereq.cloud";
 
 /** The products a station can quote. Mexico's CRE feed carries the first,
