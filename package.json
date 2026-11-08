@@ -50,11 +50,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "verify": "pnpm run typecheck && pnpm run test && pnpm run build",
-    "release": "pnpm run build && changeset publish",
     "prepublishOnly": "pnpm run build"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.27.9",
     "tsup": "^8.3.0",
     "typescript": "^5.7.2",
     "vitest": "^2.1.0"

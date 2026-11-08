@@ -1,66 +1,86 @@
 # Releasing `whereq.cloud` (JS/TS → npm)
 
-Publishing is automated with **[Changesets](https://github.com/changesets/changesets)**, mirroring
-`whereq-react`. You describe each change with a *changeset*; CI opens a "Version Packages" PR that
-bumps the version + CHANGELOG; merging that PR publishes to npm. npm creds live only in CI as the
-`NPM_TOKEN` secret; provenance is attested via OIDC.
+Publishing is automated: **push a version tag `vX.Y.Z` and GitHub Actions publishes to npm
+via Trusted Publishing (OIDC).** No tokens are stored anywhere. The script below wraps the
+whole flow into one command.
 
 ## Release a new version (the recurring steps)
 
-1. **Make your code changes** on a branch or `main`.
-2. **Add a changeset** describing the change and the bump type (patch / minor / major):
+Use the script — it does all of the below and refuses to push a half-finished release:
+
+```bash
+./release.sh 0.7.0 "the geography endpoints"    # explicit version
+./release.sh patch                              # or let it compute the bump
+./release.sh minor --dry-run                    # preview: checks + green bar, pushes nothing
+```
+
+`release.sh` bumps the version in **`package.json`**, writes the `CHANGELOG.md` entry, runs
+the green bar (typecheck → test → build), commits, pushes `main`, pushes the tag, watches the
+Release workflow and verifies the version on npm. It stops before touching anything remote
+if any precondition fails.
+
+If you'd rather do it by hand, the steps are:
+
+1. **Bump the version** in `package.json` → `"version": "X.Y.Z"`.
+   (Keep it in sync with the tag you'll push — the tag is `v` + this version.)
+2. **Write the CHANGELOG entry** for the new version under the title.
+3. **Make sure the green bar passes locally**:
    ```bash
-   pnpm changeset
+   pnpm run verify   # typecheck + test + build
    ```
-   Pick `@whereq/cloud`, choose the bump, write a one-line summary. This writes a file under
-   `.changeset/` — **commit it** with your change.
-3. **Push to `main`** (or merge your PR). The **Release** workflow runs and, because a changeset is
-   pending, opens/updates a **"Version Packages" PR** that applies the version bump + CHANGELOG.
-4. **Review & merge the "Version Packages" PR.** On merge (no changesets left), the Release workflow
-   runs `changeset publish` → **publishes to npm** and pushes the git tag + GitHub Release.
-5. Verify at <https://www.npmjs.com/package/@whereq/cloud>:
+4. **Commit to `main`** and push:
+   ```bash
+   git add -A && git commit -m "release: vX.Y.Z" && git push origin main
+   ```
+   (Pushing to `main` only runs CI — it does **not** publish.)
+5. **Tag and push the tag** — this is what triggers the publish:
+   ```bash
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+6. Watch **Actions → Release**. On success, verify at <https://www.npmjs.com/package/@whereq/cloud>:
    ```bash
    npm view @whereq/cloud version
    ```
 
-`npm i @whereq/cloud@latest` then picks up the new version.
+That's it. `npm i @whereq/cloud@latest` picks up the new version within a minute or two.
 
-## Releasing without a changeset (manual bump)
-
-If the version in `package.json` is bumped by hand, the Release workflow publishes
-that version directly, because there is no pending changeset to open a "Version
-Packages" PR for. This is the same path the first publish (`0.1.0`) took.
-
-Use it when the release must go out as a single push (the changeset flow needs
-the version PR merged before it publishes). Two rules make it safe:
-
-- **Only `version` in `package.json` needs bumping.** The exported `VERSION` is
-  derived from `package.json` at build time, so it cannot drift.
-- Write the `CHANGELOG.md` entry by hand; Changesets only generates it on the
-  version-PR path.
+> **The step people forget.** Pushing to `main` does not publish — only the **tag** does.
+> A feature merged without a version bump and a tag sits on npm forever without anyone
+> noticing, because CI stays green. That is why `release.sh` checks for an existing tag
+> and an existing npm version *before* it touches anything.
 
 ## Rules / gotchas
 
-- **Every user-facing change needs a changeset** (step 2) — no changeset ⇒ no version bump ⇒ nothing
-  publishes. For a quick release with no code change, `pnpm changeset` + pick `patch`.
-- **Never hardcode the version in `src/index.ts`.** It used to be a literal, and
-  Changesets only bumps `package.json` — so the version PR went red on
-  `keeps VERSION in step with the package version` and the release stalled with
-  npm still on the old version. `VERSION` now reads `package.json`; if you see a
-  string literal there, that is a bug.
+- **Tag must match the version** in `package.json` (tag `v0.7.0` ⇒ version `0.7.0`). The
+  `Release` workflow **fails fast** on a mismatch (`verify the tag matches the package
+  version`) instead of uploading a stale version and having npm reject it as a duplicate.
+- **Never re-use a version** — npm refuses to overwrite an existing version. Bump and re-tag.
+- **Never hardcode the version in `src/index.ts`.** It used to be a literal, and the release
+  tooling only bumped `package.json` — so the release PR went red on `keeps VERSION in step
+  with the package version` and the release stalled with npm still on the old version.
+  `VERSION` now reads `package.json`; if you see a string literal there, that is a bug.
+- **`release.yml` is load-bearing.** npm's Trusted Publisher is registered against this
+  repository *and this workflow filename*. Renaming the file breaks publishing until the
+  npm side is updated. The git ref is not part of that match, so tag builds work.
+- The release job runs the green bar (typecheck → test → build) before publishing, and
+  publishes with the **npm CLI** (not pnpm) — npm's OIDC exchange needs npm ≥ 11.5.1.
 - `pnpm/action-setup` reads **`"packageManager": "pnpm@…"`** from `package.json` — keep it set or CI
   fails at setup.
 - `pnpm-lock.yaml` must be committed (CI uses `--frozen-lockfile`); run `pnpm install` after dep changes.
 - Local green bar before pushing: `pnpm run verify` (typecheck + test + build).
 
-## One-time setup (done once per repo — for reference)
+## One-time setup (done once per repo — for reference / disaster recovery)
 
-- **npm token**: npmjs.com → create an **automation / granular access token** with publish rights for
-  `whereq.cloud` (a granular token scoped to *this package* is least-privilege; a classic automation
-  token also works account-wide).
-- **GitHub secret**: repo → Settings → Secrets and variables → Actions → add **`NPM_TOKEN`**.
-  Optionally add a `CHANGESETS_TOKEN` (PAT) so the auto-opened "Version Packages" PR triggers CI.
-- `package.json` has `publishConfig: { access: "public", provenance: true }`; workflow has
+- **npm Trusted Publisher** — npmjs.com → `@whereq/cloud` → Settings → Publishing → Trusted
+  Publisher → GitHub Actions:
+  - Organization or user: `whereq` · Repository: `whereq-cloud-js`
+  - Workflow filename: `release.yml` · Environment: leave empty
+  - Allowed actions: `npm publish`
+- No `NPM_TOKEN` secret is needed — the workflow authenticates via OIDC. The
+  `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` line resolves to empty and is unused; publish
+  authenticates via OIDC when no token is configured.
+- `package.json` has `publishConfig: { access: "public", provenance: true }`; the workflow has
   `id-token: write` for OIDC provenance.
-- **First publish** (`0.1.0`, no changeset): once `NPM_TOKEN` exists, the Release workflow publishes
-  the current version on the next push to `main` (or re-run the workflow).
+- **First publish** (`0.1.0`): the workflow publishes the version in `package.json` on the
+  first `v*` tag push.
