@@ -210,6 +210,106 @@ describe("fuel", () => {
     expect(d.prices[0].price).toBe(1.67);
   });
 
+  // -- geography ---------------------------------------------------------------
+
+  it("sends every geo place filter", async () => {
+    const f = mockFetch(200, { count: 0, data: [], limit: 50, offset: 0 });
+    const wq = new Whereq({ fetch: f });
+    await wq.geoPlaces({
+      kind: "ward",
+      source: "osm",
+      country: "CA",
+      q: "yonge",
+      bbox: "-79.6,43.5,-79.2,43.8",
+      has_boundary: true,
+      limit: 200,
+      offset: 20,
+    });
+    const url = String(f.mock.calls[0][0]);
+    expect(url).toContain("/v1/geo/places?");
+    for (const fragment of [
+      "kind=ward",
+      "source=osm",
+      "country=CA",
+      "q=yonge",
+      "bbox=-79.6%2C43.5%2C-79.2%2C43.8",
+      "has_boundary=true",
+      "limit=200",
+      "offset=20",
+    ]) {
+      expect(url).toContain(fragment);
+    }
+  });
+
+  it("drops the geo filters it was not given", async () => {
+    const f = mockFetch(200, { count: 0, data: [], limit: 50, offset: 0 });
+    const wq = new Whereq({ fetch: f });
+    await wq.geoPlaces({ kind: "city" });
+    const url = String(f.mock.calls[0][0]);
+    expect(url).toContain("kind=city");
+    expect(url).not.toContain("country");
+    expect(url).not.toContain("bbox");
+  });
+
+  it("returns a place with its parents and children", async () => {
+    const f = mockFetch(200, {
+      uid: "osm:r1428125",
+      place: { uid: "osm:r1428125", kind: "country", name: "Canada" },
+      parents: [],
+      children: [
+        { uid: "osm:r1", kind: "city", name: "Ajax", source: "osm", area_ratio: 1, is_primary: false },
+      ],
+    });
+    const wq = new Whereq({ fetch: f });
+    const d = await wq.geoPlace("osm:r1428125");
+    // The uid is percent-encoded on the way in — the API decodes the path
+    // segment, so `osm:r1428125` and `osm%3Ar1428125` are the same place.
+    expect(String(f.mock.calls[0][0])).toContain("/v1/geo/places/osm%3Ar1428125");
+    expect(d.place.name).toBe("Canada");
+    // The parents are a LIST: a place belongs to several things at once.
+    expect(Array.isArray(d.parents)).toBe(true);
+    expect(d.children[0].name).toBe("Ajax");
+  });
+
+  it("passes simplify in metres to the boundary", async () => {
+    const f = mockFetch(200, { type: "FeatureCollection", features: [] });
+    const wq = new Whereq({ fetch: f });
+    const b = await wq.geoBoundary("osm:r1428125", { simplify: 50 });
+    const url = String(f.mock.calls[0][0]);
+    expect(url).toContain("/v1/geo/places/osm%3Ar1428125/boundary");
+    expect(url).toContain("simplify=50");
+    expect(b.type).toBe("FeatureCollection");
+  });
+
+  it("sends the point to the at endpoint", async () => {
+    const f = mockFetch(200, { lon: -79.38, lat: 43.65, count: 0, places: [] });
+    const wq = new Whereq({ fetch: f });
+    await wq.geoAt(-79.38, 43.65);
+    const url = String(f.mock.calls[0][0]);
+    expect(url).toContain("/v1/geo/at?");
+    expect(url).toContain("lon=-79.38");
+    expect(url).toContain("lat=43.65");
+  });
+
+  it("reads the concept vocabulary", async () => {
+    const f = mockFetch(200, { count: 1, concepts: [], sources: [] });
+    const wq = new Whereq({ fetch: f });
+    const c = await wq.geoConcepts();
+    expect(String(f.mock.calls[0][0])).toContain("/v1/geo/concepts");
+    expect(c.count).toBe(1);
+  });
+
+  it("sends the box to the overlaps endpoint", async () => {
+    const f = mockFetch(200, { bbox: {}, min_ratio: 0.05, count: 0, overlaps: [] });
+    const wq = new Whereq({ fetch: f });
+    await wq.geoOverlaps({ bbox: "-79.6,43.5,-79.2,43.8", min_ratio: 0.2, limit: 50 });
+    const url = String(f.mock.calls[0][0]);
+    expect(url).toContain("/v1/geo/overlaps?");
+    expect(url).toContain("bbox=-79.6%2C43.5%2C-79.2%2C43.8");
+    expect(url).toContain("min_ratio=0.2");
+    expect(url).toContain("limit=50");
+  });
+
   it("exports the fuel constants", () => {
     expect(FUEL_PRODUCTS).toContain("midgrade");
     expect(FUEL_COUNTRIES).toEqual(["MX", "US", "CA"]);
