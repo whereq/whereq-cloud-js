@@ -1,5 +1,11 @@
 # @whereq/cloud
 
+## 0.7.0
+
+### Minor Changes
+
+- the local layer and the schools endpoints
+
 ## 0.6.0
 
 ### Minor Changes
