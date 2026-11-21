@@ -319,3 +319,116 @@ describe("fuel", () => {
     expect(FUEL_CURRENCIES.CA).toBe("CAD/L");
   });
 });
+
+describe("the local layer", () => {
+  it("sends every filter on the content listing", async () => {
+    const f = mockFetch(200, { data: [], pagination: {} });
+    const wq = new Whereq({ apiKey: "wq_test", fetch: f });
+    await wq.localContent({
+      type: "news",
+      category: "weather",
+      source: "city",
+      city: "Toronto",
+      province: "ON",
+      q: "storm",
+      has_location: true,
+      include_expired: true,
+      limit: 10,
+    });
+    const url = String(f.mock.calls[0][0]);
+    for (const fragment of [
+      "type=news",
+      "category=weather",
+      "source=city",
+      "city=Toronto",
+      "province=ON",
+      "q=storm",
+      "has_location=true",
+      "include_expired=true",
+      "limit=10",
+    ]) {
+      expect(url).toContain(fragment);
+    }
+  });
+
+  it("reaches the content, place, source and taxonomy paths", async () => {
+    const f = mockFetch(200, { data: [], pagination: {} });
+    const wq = new Whereq({ apiKey: "wq_test", fetch: f });
+    await wq.localContentItem(42);
+    await wq.localPlace(7);
+    await wq.localSources();
+    await wq.localTaxonomy();
+    const paths = f.mock.calls.map((c) => new URL(String(c[0])).pathname);
+    expect(paths).toEqual([
+      "/v1/local/content/42",
+      "/v1/local/places/7",
+      "/v1/local/sources",
+      "/v1/local/taxonomy",
+    ]);
+  });
+});
+
+describe("the schools", () => {
+  it("sends every filter on the directory", async () => {
+    const f = mockFetch(200, { data: [], pagination: {} });
+    const wq = new Whereq({ apiKey: "wq_test", fetch: f });
+    await wq.schools({
+      q: "theresa",
+      board: "ycdsb",
+      city: "Richmond Hill",
+      province: "ON",
+      type: "secondary",
+      has_boundary: true,
+      limit: 25,
+      offset: 50,
+    });
+    const url = String(f.mock.calls[0][0]);
+    for (const fragment of [
+      "q=theresa",
+      "board=ycdsb",
+      "city=Richmond+Hill",
+      "province=ON",
+      "type=secondary",
+      "has_boundary=true",
+      "limit=25",
+      "offset=50",
+    ]) {
+      expect(url).toContain(fragment);
+    }
+  });
+
+  it("keeps the slash in the board-qualified uid", async () => {
+    // The uid is `ycdsb/0158` and the slash is part of the id, not a path
+    // separator the client should have encoded away.
+    const f = mockFetch(200, { uid: "ycdsb/0158" });
+    const wq = new Whereq({ apiKey: "wq_test", fetch: f });
+    await wq.school("ycdsb/0158");
+    expect(new URL(String(f.mock.calls[0][0])).pathname).toBe("/v1/schools/ycdsb/0158");
+  });
+
+  it("reaches the board, taxonomy, at, boundary and scores paths", async () => {
+    const f = mockFetch(200, { data: [], pagination: {} });
+    const wq = new Whereq({ apiKey: "wq_test", fetch: f });
+    await wq.schoolBoards();
+    await wq.schoolTaxonomy();
+    await wq.schoolsAt({ lat: 43.9, lng: -79.4 });
+    await wq.schoolBoundary("ycdsb/0158", { simplify: 50 });
+    await wq.schoolScores("ycdsb/0158", { year: 2024 });
+    const paths = f.mock.calls.map((c) => new URL(String(c[0])).pathname);
+    expect(paths).toEqual([
+      "/v1/schools/boards",
+      "/v1/schools/taxonomy",
+      "/v1/schools/at",
+      "/v1/schools/ycdsb/0158/boundary",
+      "/v1/schools/ycdsb/0158/scores",
+    ]);
+  });
+
+  it("throws on a 403 from a licensed route", async () => {
+    // A key without `school_licensed` gets a 403, not a 200 with the
+    // licensed fields quietly missing.
+    const f = mockFetch(403, { detail: "missing scope" });
+    const wq = new Whereq({ apiKey: "wq_test", fetch: f });
+    await expect(wq.schoolBoundary("ycdsb/0158")).rejects.toThrow(WhereqError);
+  });
+});

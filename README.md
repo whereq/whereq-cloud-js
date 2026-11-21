@@ -135,6 +135,77 @@ in a city, in a census division, in a province and in a country. `parents` is an
 array on purpose. `bbox` is required on `geoOverlaps()`: comparing every pair in
 the country is a quadratic join.
 
+## Local
+
+News, events, stories and notices from the configured local feeds, plus the
+points of interest from the OpenStreetMap sweep — with their positions.
+
+```ts
+// The feed — news, events, stories, notices
+await wq.localContent({ type: "news", city: "Toronto", limit: 20 });
+await wq.localContent({ q: "storm", has_location: true });
+
+// One item, with its tags
+await wq.localContentItem(42);
+
+// The points of interest. lat/lng/radius_km go together.
+await wq.localPlaces({ category: "food", limit: 50 });
+await wq.localPlaces({ lat: 43.65, lng: -79.38, radius_km: 5 });
+
+// One place, the configured feeds, and the vocabulary
+await wq.localPlace(7);
+await wq.localSources();
+await wq.localTaxonomy();
+```
+
+## Schools
+
+The school boards' own published directories: the name, the board, the type,
+the grade range, the programmes, the contact block and the position.
+
+```ts
+// The directory
+await wq.schools({ board: "ycdsb", type: "secondary", limit: 50 });
+await wq.schools({ q: "theresa", has_boundary: true });
+
+// The board registry, and the vocabulary
+await wq.schoolBoards();
+await wq.schoolTaxonomy();
+
+// One school. The uid is board-qualified and carries a slash.
+await wq.school("ycdsb/0158");
+
+// The catchments and the scores — these need the `school_licensed` scope.
+await wq.schoolsAt({ lat: 43.89, lng: -79.47 });
+await wq.schoolBoundary("ycdsb/0158", { simplify: 50 });
+await wq.schoolScores("ycdsb/0158", { year: 2024 });
+```
+
+### The two licence tiers
+
+The school data splits in two, and the split is by licence:
+
+- **The open tier** — the name, the board, the type, the grade range, the
+  programmes, the address, the contact block, the position. The boards
+  publish these on their own websites. Scope: `school`.
+- **The licensed tier** — the catchment polygons and the assessment
+  scores. The catchment maps are the boards' licensed data (**viewing, not
+  redistribution**), and the scores come from a commercially-encumbered
+  feed. Scope: `school_licensed`, which is **internal-only** — it is never
+  granted to a customer-facing key.
+
+So the behaviour is:
+
+- A key **without** `school_licensed` gets the school back with the `hs_*`
+  fields **absent** — not null, absent — and `schoolBoundary()`,
+  `schoolScores()` and `schoolsAt()` reject with a `WhereqError` of status
+  **403**.
+- A key **with** `school_licensed` gets the scores and the polygons.
+
+A valid key that lacks the scope gets 403, not 401: 401 means "who are
+you", and a client that gets 401 retries with different credentials.
+
+
 ## License
 
 MIT © WhereQ

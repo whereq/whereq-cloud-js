@@ -357,6 +357,179 @@ export class WhereqError extends Error {
   }
 }
 
+/* -- local (news, events, stories, places) -------------------------------- */
+
+/** One item from a local feed — a story, an event, a notice. */
+export interface LocalContent {
+  id: number;
+  type: string;
+  category?: string | null;
+  title: string;
+  summary?: string | null;
+  description?: string | null;
+  source_name?: string | null;
+  source_url?: string | null;
+  url?: string | null;
+  publish_time?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  city?: string | null;
+  province?: string | null;
+  country?: string | null;
+  geocode_status?: string | null;
+  confidence_score?: number | null;
+  status: string;
+  expires_at?: string | null;
+  tags?: string[];
+}
+
+/** One point of interest. */
+export interface LocalPlace {
+  id: number;
+  source: string;
+  source_url?: string | null;
+  license?: string | null;
+  external_id: string;
+  name: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  city?: string | null;
+  province?: string | null;
+  country?: string | null;
+  category?: string | null;
+  kind?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+/** One configured local feed. */
+export interface LocalSource {
+  slug: string;
+  name: string;
+  kind: string;
+  url?: string | null;
+  default_type?: string | null;
+  default_city?: string | null;
+  default_province?: string | null;
+  default_country?: string | null;
+  enabled: boolean;
+  crawl_interval_minutes: number;
+}
+
+/** The page envelope every list endpoint uses. */
+export interface Page<T> {
+  data: T[];
+  pagination: {
+    limit: number;
+    count: number;
+    next_cursor?: string | null;
+    offset?: number;
+  };
+}
+
+/* -- schools ---------------------------------------------------------------- */
+
+/** One school board. */
+export interface SchoolBoard {
+  slug: string;
+  name: string;
+  type?: string | null;
+  region?: string | null;
+  school_count: number;
+}
+
+/**
+ * One school.
+ *
+ * The `hs_*` fields are **present only when the API key holds the
+ * `school_licensed` scope**. Without it they are absent — not null — so a
+ * caller can tell "you are not entitled to this" from "there is no value
+ * here".
+ */
+export interface SchoolSummary {
+  uid: string;
+  name: string;
+  type?: string | null;
+  status?: string | null;
+  province?: string | null;
+  region?: string | null;
+  city?: string | null;
+  municipality?: string | null;
+  board?: SchoolBoard | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  grade_range?: string | null;
+  programs: string[];
+  has_boundary: boolean;
+  source?: string | null;
+  source_url?: string | null;
+  license?: string | null;
+  hs_score?: number | null;
+  hs_rank?: number | null;
+  hs_rank_total?: number | null;
+  hs_school_type?: string | null;
+}
+
+/** One school's yearly assessment snapshot. Licensed. */
+export interface SchoolScores {
+  uid: string;
+  year: number;
+  rank?: number | null;
+  rank_total?: number | null;
+  rank_score?: number | null;
+  avg_exam_mark?: number | null;
+  year_label?: string | null;
+  source?: string | null;
+  eqao: Array<{
+    grade: number;
+    year_mark?: string | null;
+    rank?: number | null;
+    total?: number | null;
+    last5_avg?: number | null;
+  }>;
+}
+
+/** One school, with its contact block. `scores` needs `school_licensed`. */
+export interface SchoolDetail extends SchoolSummary {
+  address?: string | null;
+  phone?: string | null;
+  phone2?: string | null;
+  fax?: string | null;
+  website_url?: string | null;
+  boundary_pdf_url?: string | null;
+  principal?: string | null;
+  feeder_schools?: Record<string, unknown> | null;
+  extra?: Record<string, unknown> | null;
+  scores?: SchoolScores[];
+}
+
+/** A school's catchment outline. Licensed. */
+export interface SchoolBoundary {
+  uid: string;
+  name: string;
+  geometry?: { type: string; coordinates: unknown } | null;
+  polygon_count: number;
+  point_count: number;
+  source?: string | null;
+  source_url?: string | null;
+  license?: string | null;
+}
+
+/** One catchment covering a queried point. Licensed. */
+export interface CatchmentHit {
+  uid: string;
+  name: string;
+  type?: string | null;
+  distance_m?: number | null;
+}
+
+/** The school vocabulary and the headline counts. */
+export interface SchoolTaxonomy {
+  boards: SchoolBoard[];
+  types: Array<{ id: string; name: string; count: number }>;
+  program_categories: Array<{ id: string; name: string; count: number }>;
+  stats: Record<string, number>;
+}
+
 export interface ClientOptions {
   /** `wq_live_…` key for metered endpoints (sent as `X-API-Key`). */
   apiKey?: string;
@@ -604,6 +777,149 @@ export class Whereq {
     p: { bbox: string; min_ratio?: number; limit?: number } & Params,
   ): Promise<GeoOverlapList> {
     return this.get<GeoOverlapList>("/v1/geo/overlaps", p);
+  }
+
+  // -- local (news, events, stories, places) --------------------------------
+  /** The local feed — news, events, stories and notices. */
+  localContent(
+    p: {
+      type?: string;
+      category?: string;
+      source?: string;
+      city?: string;
+      province?: string;
+      bbox?: string;
+      q?: string;
+      since?: string;
+      until?: string;
+      has_location?: boolean;
+      include_expired?: boolean;
+      limit?: number;
+      cursor?: string;
+    } & Params = {},
+  ): Promise<Page<LocalContent>> {
+    return this.get<Page<LocalContent>>("/v1/local/content", p);
+  }
+
+  /** One item, with its tags. */
+  localContentItem(contentId: number): Promise<LocalContent> {
+    return this.get<LocalContent>(`/v1/local/content/${contentId}`);
+  }
+
+  /** The points of interest — the OpenStreetMap sweep.
+   *
+   *  `lat`, `lng` and `radius_km` go together: a proximity search needs
+   *  all three.
+   */
+  localPlaces(
+    p: {
+      category?: string;
+      kind?: string;
+      sub?: string;
+      bbox?: string;
+      lat?: number;
+      lng?: number;
+      radius_km?: number;
+      q?: string;
+      limit?: number;
+      offset?: number;
+    } & Params = {},
+  ): Promise<Page<LocalPlace>> {
+    return this.get<Page<LocalPlace>>("/v1/local/places", p);
+  }
+
+  /** One place. */
+  localPlace(placeId: number): Promise<LocalPlace> {
+    return this.get<LocalPlace>(`/v1/local/places/${placeId}`);
+  }
+
+  /** The configured local feeds. */
+  localSources(
+    p: { enabled?: boolean; kind?: string; limit?: number } & Params = {},
+  ): Promise<Page<LocalSource>> {
+    return this.get<Page<LocalSource>>("/v1/local/sources", p);
+  }
+
+  /** The local vocabulary — types, categories, place categories, sources. */
+  localTaxonomy(): Promise<{
+    types: Array<{ id: string; name: string; count: number }>;
+    categories: Array<{ id: string; name: string; count: number }>;
+    place_categories: Array<{ id: string; name: string; count: number }>;
+    sources: Array<{ slug: string; name: string; count: number }>;
+  }> {
+    return this.get("/v1/local/taxonomy");
+  }
+
+  // -- schools ----------------------------------------------------------------
+  /** The school directory. */
+  schools(
+    p: {
+      q?: string;
+      board?: string;
+      city?: string;
+      province?: string;
+      type?: string;
+      bbox?: string;
+      lat?: number;
+      lng?: number;
+      radius_km?: number;
+      has_boundary?: boolean;
+      limit?: number;
+      offset?: number;
+    } & Params = {},
+  ): Promise<Page<SchoolSummary>> {
+    return this.get<Page<SchoolSummary>>("/v1/schools", p);
+  }
+
+  /** The board registry — the vocabulary the `board` filter uses. */
+  schoolBoards(): Promise<Page<SchoolBoard>> {
+    return this.get<Page<SchoolBoard>>("/v1/schools/boards");
+  }
+
+  /** The school vocabulary and the headline counts. */
+  schoolTaxonomy(): Promise<SchoolTaxonomy> {
+    return this.get<SchoolTaxonomy>("/v1/schools/taxonomy");
+  }
+
+  /** The catchments that cover a point.
+   *
+   *  **Licensed.** This reads the catchment polygons, so it needs the
+   *  `school_licensed` scope — a key without it gets a 403.
+   */
+  schoolsAt(
+    p: { lat: number; lng: number; limit?: number } & Params,
+  ): Promise<Page<CatchmentHit>> {
+    return this.get<Page<CatchmentHit>>("/v1/schools/at", p);
+  }
+
+  /** One school.
+   *
+   *  The uid is board-qualified — `ycdsb/0158`, or
+   *  `ycdsb/st-theresa-of-lisieux-chs` when the board publishes no code.
+   *  It carries a slash, and the API's route is built for that.
+   *
+   *  The scores come back only with the `school_licensed` scope.
+   */
+  school(uid: string): Promise<SchoolDetail> {
+    return this.get<SchoolDetail>(`/v1/schools/${uid}`);
+  }
+
+  /** A school's catchment outline, as GeoJSON. **Licensed.**
+   *  `simplify` is in METRES. */
+  schoolBoundary(
+    uid: string,
+    p: { simplify?: number } & Params = {},
+  ): Promise<SchoolBoundary> {
+    return this.get<SchoolBoundary>(`/v1/schools/${uid}/boundary`, p);
+  }
+
+  /** One year's assessment snapshot, with the EQAO marks. **Licensed.**
+   *  `year` picks a year; the latest is the default. */
+  schoolScores(
+    uid: string,
+    p: { year?: number } & Params = {},
+  ): Promise<SchoolScores> {
+    return this.get<SchoolScores>(`/v1/schools/${uid}/scores`, p);
   }
 }
 
