@@ -434,6 +434,8 @@ export interface SchoolBoard {
   name: string;
   type?: string | null;
   region?: string | null;
+  /** The province code, e.g. `ON`. */
+  province?: string | null;
   school_count: number;
 }
 
@@ -446,11 +448,25 @@ export interface SchoolBoard {
  * here".
  */
 export interface SchoolSummary {
+  /**
+   * The platform's own row id.
+   *
+   * **Not an identifier** — the `uid` is — but the join key for the
+   * migration: whereq.com's school rows carry the same integers, because
+   * the import preserved them. It changes if the dataset is reloaded.
+   */
+  id: number;
   uid: string;
   name: string;
   type?: string | null;
   status?: string | null;
   province?: string | null;
+  /**
+   * The **board's** region — `York Region`, `Toronto`.
+   *
+   * This is what the `region` filter matches. The school row's own
+   * `region` column holds a denormalised province name and is not served.
+   */
   region?: string | null;
   city?: string | null;
   municipality?: string | null;
@@ -458,6 +474,12 @@ export interface SchoolSummary {
   latitude?: number | null;
   longitude?: number | null;
   grade_range?: string | null;
+  /**
+   * The programme **codes** (`french_immersion`), not the labels.
+   *
+   * The code is what the `program` filter takes and what the taxonomy
+   * lists as its `id`; the labels are in the taxonomy.
+   */
   programs: string[];
   has_boundary: boolean;
   source?: string | null;
@@ -500,6 +522,14 @@ export interface SchoolDetail extends SchoolSummary {
   feeder_schools?: Record<string, unknown> | null;
   extra?: Record<string, unknown> | null;
   scores?: SchoolScores[];
+  // The licensed block — present only with the `school_licensed` scope.
+  /** HouseSigma's own name for the school. */
+  hs_name?: string | null;
+  /** HouseSigma's own label for the kind of board — `Public` or `Catholic`. */
+  hs_board_type?: string | null;
+  hs_score_year?: number | null;
+  hs_score_average?: number | null;
+  hs_rank_year?: number | null;
 }
 
 /** A school's catchment outline. Licensed. */
@@ -519,15 +549,31 @@ export interface CatchmentHit {
   uid: string;
   name: string;
   type?: string | null;
+  /** The board the school belongs to. */
+  board?: string | null;
+  /** Which of the school's polygons this is — a catchment can be split. */
+  polygon_index: number;
   distance_m?: number | null;
 }
 
-/** The school vocabulary and the headline counts. */
+/** The school vocabulary and the headline counts.
+ *
+ * The whole vocabulary comes in one call.
+ */
 export interface SchoolTaxonomy {
   boards: SchoolBoard[];
   types: Array<{ id: string; name: string; count: number }>;
+  /** The programmes, as `{ id: <code>, name: <label> }`. */
   program_categories: Array<{ id: string; name: string; count: number }>;
-  stats: Record<string, number>;
+  /** The provinces, by code. The *names* come from the geography feed. */
+  provinces: Array<{ id: string; name: string; count: number }>;
+  /** The boards' own regions, each with its province. */
+  regions: Array<{ id: string; name: string; province: string | null; count: number }>;
+  /** The boards' own types — public, catholic, private. */
+  board_types: Array<{ id: string; name: string; count: number }>;
+  /** The headline counts, with the breakdowns by province, board type and
+   *  school type. */
+  stats: Record<string, unknown>;
 }
 
 export interface ClientOptions {
@@ -851,19 +897,37 @@ export class Whereq {
   }
 
   // -- schools ----------------------------------------------------------------
-  /** The school directory. */
+  /** The school directory.
+   *
+   *  `sort` is a whitelist — `name`, `hs_score`, `hs_rank`, `grade_range`,
+   *  `type`, `city` — and anything else is a 422. `rank` orders name
+   *  matches by relevance: exact, then prefix, then a word that starts
+   *  with the query, then any substring.
+   *
+   *  The limit goes to **5 000**: the map needs a whole viewport in one
+   *  call, and the whole directory is 2 528 schools.
+   */
   schools(
     p: {
       q?: string;
       board?: string;
+      /** The board's own type — public, catholic or private. */
+      board_type?: string;
+      /** The board's region, matched loosely. */
+      region?: string;
       city?: string;
       province?: string;
       type?: string;
+      /** A programme code, e.g. `french_immersion`. */
+      program?: string;
       bbox?: string;
       lat?: number;
       lng?: number;
       radius_km?: number;
       has_boundary?: boolean;
+      sort?: string;
+      order?: "asc" | "desc";
+      rank?: boolean;
       limit?: number;
       offset?: number;
     } & Params = {},
