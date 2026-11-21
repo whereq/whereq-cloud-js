@@ -294,6 +294,52 @@ describe("fuel", () => {
     expect(url).toContain("lat=43.65");
   });
 
+  it("sends the viewport and every filter to the bulk boundaries", async () => {
+    const f = mockFetch(200, { count: 0, truncated: false, limit: 200, items: [] });
+    const wq = new Whereq({ fetch: f });
+    const b = await wq.geoBoundaries({
+      bbox: "-79.55,43.60,-79.25,43.75",
+      kind: "ward",
+      source: "osm",
+      simplify_m: 25,
+      limit: 50,
+    });
+    const url = String(f.mock.calls[0][0]);
+    expect(url).toContain("/v1/geo/boundaries?");
+    expect(url).toContain("bbox=-79.55%2C43.60%2C-79.25%2C43.75");
+    expect(url).toContain("kind=ward");
+    expect(url).toContain("source=osm");
+    expect(url).toContain("simplify_m=25");
+    expect(url).toContain("limit=50");
+    expect(b.truncated).toBe(false);
+  });
+
+  it("keeps the attribution on every boundary item", async () => {
+    const f = mockFetch(200, {
+      count: 1,
+      truncated: false,
+      limit: 200,
+      items: [
+        {
+          uid: "osm:r1428125",
+          name: "Canada",
+          kind: "country",
+          source: "osm",
+          source_url: "https://www.openstreetmap.org/relation/1428125",
+          license: "ODbL 1.0 (OpenStreetMap contributors)",
+          area_km2: 9984670,
+          simplified_m: 50,
+          geometry: { type: "MultiPolygon", coordinates: [] },
+        },
+      ],
+    });
+    const wq = new Whereq({ fetch: f });
+    const b = await wq.geoBoundaries();
+    expect(b.items[0].license).toContain("ODbL");
+    expect(b.items[0].source_url).toBeTruthy();
+    expect(b.items[0].geometry.type).toBe("MultiPolygon");
+  });
+
   it("reads the concept vocabulary", async () => {
     const f = mockFetch(200, { count: 1, concepts: [], sources: [] });
     const wq = new Whereq({ fetch: f });

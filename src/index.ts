@@ -305,6 +305,7 @@ export interface GeoAtPlace {
   name_en?: string | null;
   name_zh?: string | null;
   source: string;
+  license?: string | null;
   raw_admin_level?: number | null;
   raw_place?: string | null;
   population?: number | null;
@@ -333,6 +334,40 @@ export interface GeoAtResponse {
 export interface GeoBoundary {
   type: string;
   features: Array<Record<string, unknown>>;
+}
+
+/** One outline from `GET /v1/geo/boundaries`.
+ *
+ *  `license` and `source_url` are the attribution the open licences
+ *  require, and they travel with the row.
+ */
+export interface GeoBoundaryItem {
+  uid: string;
+  name: string;
+  kind: string;
+  source: string;
+  source_url?: string | null;
+  license?: string | null;
+  area_km2?: number | null;
+  centroid_lon?: number | null;
+  centroid_lat?: number | null;
+  simplified_m: number;
+  /** A GeoJSON geometry — a Polygon or a MultiPolygon. */
+  geometry: Record<string, unknown>;
+}
+
+/** Every outline in a viewport — and whether the answer was truncated.
+ *
+ *  `count` is how many outlines matched the filters; `truncated` says
+ *  whether the limit cut the answer short. A client that draws polygons
+ *  must be able to tell "that is all of them" from "that is the first
+ *  two hundred", or it will draw a map with holes in it.
+ */
+export interface GeoBoundaryList {
+  count: number;
+  truncated: boolean;
+  limit: number;
+  items: GeoBoundaryItem[];
 }
 
 export interface GeoPlacesParams {
@@ -794,6 +829,30 @@ export class Whereq {
    */
   geoBoundary(uid: string, p: { simplify?: number } & Params = {}): Promise<GeoBoundary> {
     return this.get<GeoBoundary>(`/v1/geo/places/${encodeURIComponent(uid)}/boundary`, p);
+  }
+
+  /** Every outline in a viewport, in one response.
+   *
+   *  This is the route a map needs. Asking for one outline at a time is
+   *  fine when the customer wants one outline; it is unusable when a pan
+   *  wants a whole viewport's worth of them — that is one request per
+   *  polygon, far past the rate the API allows.
+   *
+   *  The answer carries `count` (how many matched) and `truncated`
+   *  (whether the limit cut the answer short), and the outlines come back
+   *  **smallest first**, so a truncated answer drops the large areas
+   *  rather than the wards the user is looking at.
+   */
+  geoBoundaries(
+    p: {
+      bbox?: string;
+      kind?: string;
+      source?: string;
+      simplify_m?: number;
+      limit?: number;
+    } & Params = {},
+  ): Promise<GeoBoundaryList> {
+    return this.get<GeoBoundaryList>("/v1/geo/boundaries", p);
   }
 
   /** Every place containing a point, broadest first.
