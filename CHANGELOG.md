@@ -1,5 +1,11 @@
 # @whereq/cloud
 
+## 0.8.0
+
+### Minor Changes
+
+- the outlines come in bulk: geoBoundaries(), and the containment stack publishes its licence
+
 ## 0.7.1
 
 ### Patch Changes
