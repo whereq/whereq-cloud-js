@@ -1,5 +1,11 @@
 # @whereq/cloud
 
+## 0.7.1
+
+### Patch Changes
+
+- the school directory grows: filters, ordering, a bigger limit and the whole vocabulary
+
 ## 0.7.0
 
 ### Minor Changes
