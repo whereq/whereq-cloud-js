@@ -1,5 +1,11 @@
 # @whereq/cloud
 
+## 0.9.0
+
+### Minor Changes
+
+- the page envelope carries next_offset
+
 ## 0.8.1
 
 ### Patch Changes
