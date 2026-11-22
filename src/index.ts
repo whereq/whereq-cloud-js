@@ -847,6 +847,7 @@ export class Whereq {
     p: {
       bbox?: string;
       kind?: string;
+      exclude_kind?: string;
       source?: string;
       simplify_m?: number;
       limit?: number;

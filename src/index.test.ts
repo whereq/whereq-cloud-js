@@ -314,6 +314,14 @@ describe("fuel", () => {
     expect(b.truncated).toBe(false);
   });
 
+  it("can exclude a kind from the boundaries", async () => {
+    const f = mockFetch(200, { count: 0, truncated: false, limit: 200, items: [] });
+    const wq = new Whereq({ fetch: f });
+    await wq.geoBoundaries({ exclude_kind: "country,province,state" });
+    const url = String(f.mock.calls[0][0]);
+    expect(url).toContain("exclude_kind=country%2Cprovince%2Cstate");
+  });
+
   it("keeps the attribution on every boundary item", async () => {
     const f = mockFetch(200, {
       count: 1,
