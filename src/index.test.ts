@@ -451,6 +451,20 @@ describe("the schools", () => {
     }
   });
 
+  it("pages the directory by the offset it hands back", async () => {
+    // The school route pages by **offset**, so the envelope carries
+    // `next_offset` — a number, not a cursor. A client that reads it as a
+    // cursor would be stuck on page one, which is the bug this pins.
+    const f = mockFetch(200, {
+      data: [],
+      pagination: { limit: 25, count: 0, next_offset: 75, offset: 50, total: 2647 },
+    });
+    const wq = new Whereq({ apiKey: "wq_test", fetch: f });
+    const page = await wq.schools({ limit: 25, offset: 50 });
+    expect(page.pagination.next_offset).toBe(75);
+    expect(typeof page.pagination.next_offset).toBe("number");
+  });
+
   it("keeps the slash in the board-qualified uid", async () => {
     // The uid is `ycdsb/0158` and the slash is part of the id, not a path
     // separator the client should have encoded away.

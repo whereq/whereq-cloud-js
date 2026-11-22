@@ -305,6 +305,9 @@ export interface GeoAtPlace {
   name_en?: string | null;
   name_zh?: string | null;
   source: string;
+  /** The attribution link. ODbL 1.0 and CC-BY 4.0 both require it, and it
+   *  travels with the shape. */
+  source_url?: string | null;
   license?: string | null;
   raw_admin_level?: number | null;
   raw_place?: string | null;
@@ -456,7 +459,12 @@ export interface Page<T> {
   pagination: {
     limit: number;
     count: number;
+    /** The keyset routes (`/v1/local/content`) hand out a cursor. */
     next_cursor?: string | null;
+    /** The offset-paged routes (`/v1/schools`) hand out the offset the next
+     *  page starts at — an integer, not a cursor, so it can be passed
+     *  straight back as `offset`. */
+    next_offset?: number | null;
     offset?: number;
   };
 }
@@ -808,6 +816,8 @@ export class Whereq {
    *
    *  `country` takes an ISO code and either spelling works: `"CA"` and
    *  `"CAN"` find the same places, in both vocabularies.
+   *
+   *  `limit` goes to 500 rows per page.
    */
   geoPlaces(p: GeoPlacesParams & Params = {}): Promise<GeoPlaceList> {
     return this.get<GeoPlaceList>("/v1/geo/places", p);
@@ -965,7 +975,11 @@ export class Whereq {
    *  with the query, then any substring.
    *
    *  The limit goes to **5 000**: the map needs a whole viewport in one
-   *  call, and the whole directory is 2 528 schools.
+   *  call, and the whole directory is 2 647 schools.
+   *
+   *  The envelope's `pagination` carries `next_offset` — the offset the
+   *  next page starts at, as a number — not a cursor: the route pages by
+   *  offset and has no cursor parameter.
    */
   schools(
     p: {
