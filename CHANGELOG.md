@@ -1,5 +1,11 @@
 # @whereq/cloud
 
+## 0.8.1
+
+### Patch Changes
+
+- the boundaries can exclude a kind
+
 ## 0.8.0
 
 ### Minor Changes
